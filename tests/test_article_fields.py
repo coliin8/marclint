@@ -6,6 +6,17 @@ from pymarc import Record, Field, Subfield
 from marc_lint.linter import MarcLint
 
 
+def make_008(lang: str = "eng") -> Field:
+    """Create an 008 field with the specified language code at positions 35-37.
+
+    The 008 field is 40 characters. Language is at positions 35-37 (0-indexed).
+    """
+    # Positions: 00-05 date, 06 type, 07-10 date1, 11-14 date2, 15-17 country,
+    # 18-34 material specific, 35-37 language, 38 modified, 39 cat source
+    data = "230101s2023    xxu           000 0 " + lang + " d"
+    return Field(tag="008", data=data)
+
+
 @pytest.fixture
 def linter():
     """Provide a fresh MarcLint instance for each test."""
@@ -21,6 +32,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("eng"),
                 Field(
                     tag="130",
                     indicators=["4", " "],  # Correct for "The "
@@ -37,6 +49,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("eng"),
                 Field(
                     tag="130",
                     indicators=["0", " "],  # Should be 4 for "The "
@@ -53,6 +66,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("eng"),
                 Field(
                     tag="130",
                     indicators=["0", " "],  # Correct for no article
@@ -70,6 +84,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("eng"),
                 Field(
                     tag="245",
                     indicators=["1", "0"],
@@ -86,6 +101,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("eng"),
                 Field(
                     tag="245",
                     indicators=["1", "0"],
@@ -104,6 +120,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("eng"),
                 Field(
                     tag="245",
                     indicators=["1", "0"],
@@ -120,6 +137,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("eng"),
                 Field(
                     tag="245",
                     indicators=["1", "0"],
@@ -137,6 +155,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("ger"),  # German for "Das"
                 Field(
                     tag="245",
                     indicators=["1", "0"],
@@ -153,6 +172,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("ger"),  # German for "Das"
                 Field(
                     tag="245",
                     indicators=["1", "0"],
@@ -170,6 +190,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("fre"),  # French for "Le"
                 Field(
                     tag="245",
                     indicators=["1", "0"],
@@ -186,6 +207,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("fre"),  # French for "Le"
                 Field(
                     tag="245",
                     indicators=["1", "0"],
@@ -203,6 +225,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("spa"),  # Spanish - covers "La" and "Los"
                 Field(
                     tag="245",
                     indicators=["1", "3"],  # Correct for "La "
@@ -215,7 +238,7 @@ def cases():
                 ),
                 Field(
                     tag="830",
-                    indicators=[" ", "5"],  # Correct for "Eine "
+                    indicators=[" ", "5"],  # Correct for "Eine " - but won't match spa
                     subfields=[Subfield(code="a", value="Eine kleine series.")],
                 ),
             ],
@@ -225,6 +248,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("eng"),
                 Field(
                     tag="245",
                     indicators=["1", "0"],
@@ -242,6 +266,7 @@ def cases():
             force_utf8=True,
             leader="00000nam  2200000   4500",
             fields=[
+                make_008("eng"),  # English for "The"
                 Field(
                     tag="130",
                     indicators=["4", " "],
@@ -249,7 +274,7 @@ def cases():
                 ),
                 Field(
                     tag="240",
-                    indicators=["1", "4"],  # "Los " = 4 chars
+                    indicators=["1", "4"],  # "Los " = 4 chars - but won't match eng
                     subfields=[Subfield(code="a", value="Los cuentos.")],
                 ),
                 Field(
@@ -264,13 +289,109 @@ def cases():
                 ),
                 Field(
                     tag="730",
-                    indicators=["3", " "],
+                    indicators=["3", " "],  # "Le " - but won't match eng
                     subfields=[Subfield(code="a", value="Le morte d'Arthur.")],
                 ),
                 Field(
                     tag="830",
                     indicators=[" ", "4"],
                     subfields=[Subfield(code="a", value="The classics series.")],
+                ),
+            ],
+        ),
+        # Language not in ARTICLES - should not judge indicator
+        # "Die" is an article in German, but this record is Japanese
+        # We should NOT warn regardless of indicator value
+        "language_not_in_articles_nonzero_indicator": Record(
+            force_utf8=True,
+            leader="00000nam  2200000   4500",
+            fields=[
+                make_008("jpn"),  # Japanese - not in any article's language list
+                Field(
+                    tag="245",
+                    indicators=["1", "4"],  # Non-zero indicator, but shouldn't warn
+                    subfields=[Subfield(code="a", value="Die Hard.")],
+                ),
+            ],
+        ),
+        "language_not_in_articles_zero_indicator": Record(
+            force_utf8=True,
+            leader="00000nam  2200000   4500",
+            fields=[
+                make_008("jpn"),  # Japanese - not in any article's language list
+                Field(
+                    tag="245",
+                    indicators=["1", "0"],  # Zero indicator, shouldn't warn either
+                    subfields=[Subfield(code="a", value="Die Hard.")],
+                ),
+            ],
+        ),
+        # Article word in different language record - "Die" is German article
+        # but record is English, so should not be treated as article
+        "article_word_different_language": Record(
+            force_utf8=True,
+            leader="00000nam  2200000   4500",
+            fields=[
+                make_008("eng"),  # English - "die" is not an English article
+                Field(
+                    tag="245",
+                    indicators=[
+                        "1",
+                        "0",
+                    ],  # Zero is correct - "Die" isn't article in English
+                    subfields=[Subfield(code="a", value="Die Hard.")],
+                ),
+            ],
+        ),
+        "article_word_different_language_wrong_indicator": Record(
+            force_utf8=True,
+            leader="00000nam  2200000   4500",
+            fields=[
+                make_008("eng"),  # English - "die" is not an English article
+                Field(
+                    tag="245",
+                    indicators=[
+                        "1",
+                        "4",
+                    ],  # Non-zero but "Die" isn't article in English
+                    subfields=[Subfield(code="a", value="Die Hard.")],
+                ),
+            ],
+        ),
+        # No 008 field - can't determine language, should not make assumptions
+        "no_008_field_with_article_word": Record(
+            force_utf8=True,
+            leader="00000nam  2200000   4500",
+            fields=[
+                # No 008 field - language unknown
+                Field(
+                    tag="245",
+                    indicators=["1", "4"],  # Non-zero indicator for "The "
+                    subfields=[Subfield(code="a", value="The great book.")],
+                ),
+            ],
+        ),
+        "no_008_field_zero_indicator": Record(
+            force_utf8=True,
+            leader="00000nam  2200000   4500",
+            fields=[
+                # No 008 field - language unknown
+                Field(
+                    tag="245",
+                    indicators=["1", "0"],  # Zero indicator
+                    subfields=[Subfield(code="a", value="The great book.")],
+                ),
+            ],
+        ),
+        "no_008_field_non_article_word": Record(
+            force_utf8=True,
+            leader="00000nam  2200000   4500",
+            fields=[
+                # No 008 field - language unknown
+                Field(
+                    tag="245",
+                    indicators=["1", "5"],  # Non-zero indicator for non-article word
+                    subfields=[Subfield(code="a", value="Great book.")],
                 ),
             ],
         ),
@@ -430,3 +551,93 @@ def test_comprehensive_all_fields(linter, cases):
     warnings = "\n".join(linter.warnings())
     # All fields have correct indicators
     assert "may be an article" not in warnings
+
+
+# Language not in ARTICLES tests - should not make judgments
+def test_language_not_in_articles_nonzero_indicator(linter, cases):
+    """Record with language not in ARTICLES should not warn about article indicators.
+
+    'Die' is a German article, but this record is Japanese. Since Japanese
+    is not in any article's language list, we should not judge the indicator.
+    """
+    record = cases["language_not_in_articles_nonzero_indicator"]
+    linter.check_record(record)
+    warnings = "\n".join(linter.warnings())
+    # Should NOT warn about "die" being an article or indicator being wrong
+    assert "article" not in warnings.lower()
+    assert "die" not in warnings.lower()
+
+
+def test_language_not_in_articles_zero_indicator(linter, cases):
+    """Record with language not in ARTICLES and zero indicator should not warn."""
+    record = cases["language_not_in_articles_zero_indicator"]
+    linter.check_record(record)
+    warnings = "\n".join(linter.warnings())
+    # Should NOT warn - we don't judge when language isn't in ARTICLES
+    assert "article" not in warnings.lower()
+    assert "die" not in warnings.lower()
+
+
+def test_article_word_different_language(linter, cases):
+    """Article word in a language where it's NOT an article should not warn.
+
+    'Die' is a German article but this is an English record.
+    Indicator 0 is correct because 'die' is not an English article.
+    """
+    record = cases["article_word_different_language"]
+    linter.check_record(record)
+    warnings = "\n".join(linter.warnings())
+    # Should NOT warn - "die" is not an article in English
+    assert "article" not in warnings.lower()
+
+
+def test_article_word_different_language_wrong_indicator(linter, cases):
+    """Article word with wrong indicator in a language where it's NOT an article.
+
+    'Die' is a German article but this is an English record with indicator 4.
+    Should warn that 'die' does not appear to be an article (in English).
+    """
+    record = cases["article_word_different_language_wrong_indicator"]
+    linter.check_record(record)
+    warnings = "\n".join(linter.warnings())
+    # SHOULD warn that indicator should be 0 since "die" is not an English article
+    assert "does not appear to be an article" in warnings
+
+
+# Tests for records without 008 field (can't determine language)
+def test_no_008_field_with_article_word(linter, cases):
+    """Record without 008 field should not warn about article indicators.
+
+    When we can't determine the record's language, we should not make
+    assumptions about whether a word is an article or not.
+    """
+    record = cases["no_008_field_with_article_word"]
+    linter.check_record(record)
+    warnings = "\n".join(linter.warnings())
+    # Should warn about missing 008, but NOT about article indicators
+    assert "008" in warnings  # Missing 008 warning
+    assert "article" not in warnings.lower()
+
+
+def test_no_008_field_zero_indicator(linter, cases):
+    """Record without 008 field and zero indicator should not warn about articles."""
+    record = cases["no_008_field_zero_indicator"]
+    linter.check_record(record)
+    warnings = "\n".join(linter.warnings())
+    # Should warn about missing 008, but NOT about article indicators
+    assert "008" in warnings  # Missing 008 warning
+    assert "article" not in warnings.lower()
+
+
+def test_no_008_field_non_article_word(linter, cases):
+    """Record without 008 field with non-article word should not warn about articles.
+
+    Even though indicator is non-zero and word is not an article in any language,
+    we should not warn because we can't determine the record's language.
+    """
+    record = cases["no_008_field_non_article_word"]
+    linter.check_record(record)
+    warnings = "\n".join(linter.warnings())
+    # Should warn about missing 008, but NOT about article indicators
+    assert "008" in warnings  # Missing 008 warning
+    assert "article" not in warnings.lower()
