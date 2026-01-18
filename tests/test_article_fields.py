@@ -358,6 +358,43 @@ def cases():
                 ),
             ],
         ),
+        # No 008 field - can't determine language, should not make assumptions
+        "no_008_field_with_article_word": Record(
+            force_utf8=True,
+            leader="00000nam  2200000   4500",
+            fields=[
+                # No 008 field - language unknown
+                Field(
+                    tag="245",
+                    indicators=["1", "4"],  # Non-zero indicator for "The "
+                    subfields=[Subfield(code="a", value="The great book.")],
+                ),
+            ],
+        ),
+        "no_008_field_zero_indicator": Record(
+            force_utf8=True,
+            leader="00000nam  2200000   4500",
+            fields=[
+                # No 008 field - language unknown
+                Field(
+                    tag="245",
+                    indicators=["1", "0"],  # Zero indicator
+                    subfields=[Subfield(code="a", value="The great book.")],
+                ),
+            ],
+        ),
+        "no_008_field_non_article_word": Record(
+            force_utf8=True,
+            leader="00000nam  2200000   4500",
+            fields=[
+                # No 008 field - language unknown
+                Field(
+                    tag="245",
+                    indicators=["1", "5"],  # Non-zero indicator for non-article word
+                    subfields=[Subfield(code="a", value="Great book.")],
+                ),
+            ],
+        ),
     }
 
 
@@ -565,3 +602,42 @@ def test_article_word_different_language_wrong_indicator(linter, cases):
     warnings = "\n".join(linter.warnings())
     # SHOULD warn that indicator should be 0 since "die" is not an English article
     assert "does not appear to be an article" in warnings
+
+
+# Tests for records without 008 field (can't determine language)
+def test_no_008_field_with_article_word(linter, cases):
+    """Record without 008 field should not warn about article indicators.
+
+    When we can't determine the record's language, we should not make
+    assumptions about whether a word is an article or not.
+    """
+    record = cases["no_008_field_with_article_word"]
+    linter.check_record(record)
+    warnings = "\n".join(linter.warnings())
+    # Should warn about missing 008, but NOT about article indicators
+    assert "008" in warnings  # Missing 008 warning
+    assert "article" not in warnings.lower()
+
+
+def test_no_008_field_zero_indicator(linter, cases):
+    """Record without 008 field and zero indicator should not warn about articles."""
+    record = cases["no_008_field_zero_indicator"]
+    linter.check_record(record)
+    warnings = "\n".join(linter.warnings())
+    # Should warn about missing 008, but NOT about article indicators
+    assert "008" in warnings  # Missing 008 warning
+    assert "article" not in warnings.lower()
+
+
+def test_no_008_field_non_article_word(linter, cases):
+    """Record without 008 field with non-article word should not warn about articles.
+
+    Even though indicator is non-zero and word is not an article in any language,
+    we should not warn because we can't determine the record's language.
+    """
+    record = cases["no_008_field_non_article_word"]
+    linter.check_record(record)
+    warnings = "\n".join(linter.warnings())
+    # Should warn about missing 008, but NOT about article indicators
+    assert "008" in warnings  # Missing 008 warning
+    assert "article" not in warnings.lower()

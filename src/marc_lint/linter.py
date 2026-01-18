@@ -997,8 +997,6 @@ class MarcLint:
         Returns the 3-character language code from positions 35-37 of the 008
         field, or None if not available or invalid.
         """
-        if self._current_record is None:
-            return None
 
         fields_008 = self._current_record.get_fields("008")
         if not fields_008:
