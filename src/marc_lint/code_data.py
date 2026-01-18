@@ -116,6 +116,139 @@ LEADER_MULTIPART_RESOURCE_RECORD_LEVEL: dict[str, str] = {
 }
 """Valid values for Leader position 19 (Multipart Resource Record Level)."""
 
+
+# ============================================================================
+# Artilces for Non-Filing Characters in Titles
+# ============================================================================
+
+# Map article strings to language codes where they function as articles
+# Format: article (lowercase) -> list of ISO 639-2 language codes
+# Note: Language codes are for documentation; validation only checks key existence
+ARTICLES = {
+    "'n": ["afr"],
+    "a": ["eng", "glg", "hun", "por", "yid"],
+    "an": ["eng", "gle", "yid"],
+    "as": ["por"],
+    "az": ["hun"],
+    "das": ["ger"],
+    "de": ["dut"],
+    "dem": ["ger"],
+    "den": ["dan", "ger", "nor", "swe"],
+    "der": ["ger", "yid"],
+    "des": ["fre", "ger"],
+    "det": ["dan", "nor", "swe"],
+    "di": ["yid"],
+    "die": ["afr", "ger"],
+    "dos": ["yid"],
+    "du": ["fre"],
+    "een": ["dut"],
+    "egy": ["hun"],
+    "ein": ["ger"],
+    "eine": ["ger"],
+    "einem": ["ger"],
+    "einen": ["ger"],
+    "einer": ["ger"],
+    "eines": ["ger"],
+    "el": ["cat", "spa"],
+    "els": ["cat"],
+    "en": ["cat", "dan", "nor", "swe"],
+    "et": ["dan", "nor"],
+    "ett": ["swe"],
+    "gl": ["ita"],
+    "gli": ["ita"],
+    "het": ["dut"],
+    "hin": ["ice"],
+    "hinn": ["ice"],
+    "hið": ["ice"],
+    "hina": ["ice"],
+    "hinir": ["ice"],
+    "hinar": ["ice"],
+    "hinu": ["ice"],
+    "hinum": ["ice"],
+    "hinni": ["ice"],
+    "hins": ["ice"],
+    "hinnar": ["ice"],
+    "hinna": ["ice"],
+    "i": ["ita"],
+    "il": ["ita", "mlt"],
+    "l": ["cat", "fre", "ita", "mlt"],
+    "la": ["cat", "epo", "fre", "ita", "spa"],
+    "las": ["spa"],
+    "le": ["fre", "ita"],
+    "les": ["cat", "fre"],
+    "lo": ["ita", "spa"],
+    "los": ["spa"],
+    "o": ["por"],
+    "os": ["por"],
+    "na": ["gle"],
+    "the": ["eng"],
+    "uno": ["ita"],
+    "un": ["cat", "fre", "ita", "spa"],
+    "una": ["cat", "ita", "spa"],
+    "unes": ["cat"],
+    "uns": ["cat", "por"],
+    "um": ["por"],
+    "uma": ["por"],
+    "umas": ["por"],
+    "une": ["fre"],
+    "unas": ["spa"],
+    "unos": ["spa"],
+    "y": ["wel"],
+    "yr": ["wel"],
+}
+
+# Phrases that begin with article-like words but should NOT be
+# treated as having a non-filing article (proper nouns, acronyms, etc.)
+ARTICLE_EXCEPTIONS = {
+    "A & E",  # TV channel/brand
+    "A & ",  # Generic "A and" pattern
+    "A-",  # A-prefix words (A-level, etc.)
+    "A+",  # Grade designation
+    "A is ",  # "A" as subject
+    "A isn't ",  # "A" as subject
+    "A l'",  # French "à l'" (not article "a")
+    "A la ",  # "À la" French phrase
+    "A posteriori",  # Latin phrase
+    "A priori",  # Latin phrase
+    "A to ",  # "A" as letter/item
+    "El Nino",  # Weather phenomenon
+    "El Salvador",  # Country name
+    "L is ",  # "L" as subject
+    "L-",  # L-prefix words
+    "La Salle",  # Proper name
+    "Las Vegas",  # City name
+    "Lo cual",  # Spanish relative pronoun phrase
+    "Lo mein",  # Food name
+    "Lo que",  # Spanish relative pronoun phrase
+    "Los Alamos",  # City name
+    "Los Angeles",  # City name
+}
+
+# Languages we have article data for - only judge these
+SUPPORTED_ARTICLE_LANGUAGES = {
+    "afr",
+    "cat",
+    "dan",
+    "dut",
+    "eng",
+    "epo",
+    "fre",
+    "ger",
+    "gle",
+    "glg",
+    "hun",
+    "ice",
+    "ita",
+    "mlt",
+    "nor",
+    "por",
+    "spa",
+    "swe",
+    "wel",
+    "yid",
+}
+
+
 # ============================================================================
 # 008 CONTROL FIELD VALIDATION
 # ============================================================================
