@@ -87,6 +87,7 @@ class MarcLint:
         self._warnings: list[MarcWarning] = []
         self._rules = RuleGenerator().rules
         self._current_record_id: Optional[str] = None
+        self._current_record: Optional[Record] = None
         self._field_positions: Dict[
             str, int
         ] = {}  # Track positions of repeating fields
@@ -108,6 +109,7 @@ class MarcLint:
     def clear_warnings(self) -> None:
         self._warnings = []
         self._field_positions = {}
+        self._current_record = None
 
     def warn(
         self,
@@ -175,6 +177,9 @@ class MarcLint:
                 self._current_record_id = field_001[0].data
             else:
                 self._current_record_id = None
+
+        # Store current record for use by field checkers
+        self._current_record = marc
 
         # Check leader first
         self.check_leader(marc)
@@ -253,8 +258,9 @@ class MarcLint:
 
             field_seen[key] = position + 1
 
-        # Reset current record ID
+        # Reset current record context
         self._current_record_id = None
+        self._current_record = None
 
         return self._warnings
 
@@ -985,6 +991,35 @@ class MarcLint:
 
     # -------- internal helpers --------
 
+    def _get_record_language(self) -> Optional[str]:
+        """Get the language code from the current record's 008 field.
+
+        Returns the 3-character language code from positions 35-37 of the 008
+        field, or None if not available or invalid.
+        """
+        if self._current_record is None:
+            return None
+
+        fields_008 = self._current_record.get_fields("008")
+        if not fields_008:
+            return None
+
+        data = getattr(fields_008[0], "data", "") or ""
+        if len(data) < 38:
+            return None
+
+        language = data[35:38]
+
+        # Return None for blank/unknown values
+        if language in ("   ", "|||", "   ", "und", "zxx"):
+            return None
+
+        # Validate against known language codes
+        if LANGUAGE_CODES.get(language) or OBSOLETE_LANGUAGE_CODES.get(language):
+            return language
+
+        return None
+
     def _get_subfield_pairs(self, field: Field) -> List[tuple[str, str]]:
         """Extract subfield code/data pairs from a field.
 
@@ -1026,39 +1061,79 @@ class MarcLint:
         """
 
         # Map article strings to language codes where they function as articles
-        # Format: article (lowercase) -> space-separated ISO 639-2 language codes
+        # Format: article (lowercase) -> list of ISO 639-2 language codes
+        # Note: Language codes are for documentation; validation only checks key existence
         ARTICLES = {
-            "a": "eng glg hun por",  # English, Galician, Hungarian, Portuguese
-            "an": "eng",  # English
-            "das": "ger",  # German
-            "dem": "ger",  # German
-            "der": "ger",  # German
-            "ein": "ger",  # German
-            "eine": "ger",  # German
-            "einem": "ger",  # German
-            "einen": "ger",  # German
-            "einer": "ger",  # German
-            "eines": "ger",  # German
-            "el": "spa",  # Spanish
-            "en": "cat dan nor swe",  # Catalan, Danish, Norwegian, Swedish
-            "gl": "ita",  # Italian
-            "gli": "ita",  # Italian
-            "il": "ita mlt",  # Italian, Maltese
-            "l": "cat fre ita mlt",  # Catalan, French, Italian, Maltese
-            "la": "cat fre ita spa",  # Catalan, French, Italian, Spanish
-            "las": "spa",  # Spanish
-            "le": "fre ita",  # French, Italian
-            "les": "cat fre",  # Catalan, French
-            "lo": "ita spa",  # Italian, Spanish
-            "los": "spa",  # Spanish
-            "os": "por",  # Portuguese
-            "the": "eng",  # English
-            "um": "por",  # Portuguese
-            "uma": "por",  # Portuguese
-            "un": "cat spa fre ita",  # Catalan, Spanish, French, Italian
-            "una": "cat spa ita",  # Catalan, Spanish, Italian
-            "une": "fre",  # French
-            "uno": "ita",  # Italian
+            "'n": ["afr"],
+            "a": ["eng", "glg", "hun", "por", "yid"],
+            "an": ["eng", "gle", "yid"],
+            "as": ["por"],
+            "az": ["hun"],
+            "das": ["ger"],
+            "de": ["dut"],
+            "dem": ["ger"],
+            "den": ["dan", "ger", "nor", "swe"],
+            "der": ["ger", "yid"],
+            "des": ["fre", "ger"],
+            "det": ["dan", "nor", "swe"],
+            "di": ["yid"],
+            "die": ["afr", "ger"],
+            "dos": ["yid"],
+            "du": ["fre"],
+            "een": ["dut"],
+            "egy": ["hun"],
+            "ein": ["ger"],
+            "eine": ["ger"],
+            "einem": ["ger"],
+            "einen": ["ger"],
+            "einer": ["ger"],
+            "eines": ["ger"],
+            "el": ["cat", "spa"],
+            "els": ["cat"],
+            "en": ["cat", "dan", "nor", "swe"],
+            "et": ["dan", "nor"],
+            "ett": ["swe"],
+            "gl": ["ita"],
+            "gli": ["ita"],
+            "het": ["dut"],
+            "hin": ["ice"],
+            "hinn": ["ice"],
+            "hið": ["ice"],
+            "hina": ["ice"],
+            "hinir": ["ice"],
+            "hinar": ["ice"],
+            "hinu": ["ice"],
+            "hinum": ["ice"],
+            "hinni": ["ice"],
+            "hins": ["ice"],
+            "hinnar": ["ice"],
+            "hinna": ["ice"],
+            "i": ["ita"],
+            "il": ["ita", "mlt"],
+            "l": ["cat", "fre", "ita", "mlt"],
+            "la": ["cat", "epo", "fre", "ita", "spa"],
+            "las": ["spa"],
+            "le": ["fre", "ita"],
+            "les": ["cat", "fre"],
+            "lo": ["ita", "spa"],
+            "los": ["spa"],
+            "o": ["por"],
+            "os": ["por"],
+            "na": ["gle"],
+            "the": ["eng"],
+            "uno": ["ita"],
+            "un": ["cat", "fre", "ita", "spa"],
+            "una": ["cat", "ita", "spa"],
+            "unes": ["cat"],
+            "uns": ["cat", "por"],
+            "um": ["por"],
+            "uma": ["por"],
+            "umas": ["por"],
+            "une": ["fre"],
+            "unas": ["spa"],
+            "unos": ["spa"],
+            "y": ["wel"],
+            "yr": ["wel"],
         }
 
         # Phrases that begin with article-like words but should NOT be
@@ -1086,6 +1161,30 @@ class MarcLint:
             "Lo que",  # Spanish relative pronoun phrase
             "Los Alamos",  # City name
             "Los Angeles",  # City name
+        }
+
+        # Languages we have article data for - only judge these
+        SUPPORTED_ARTICLE_LANGUAGES = {
+            "afr",
+            "cat",
+            "dan",
+            "dut",
+            "eng",
+            "epo",
+            "fre",
+            "ger",
+            "gle",
+            "glg",
+            "hun",
+            "ice",
+            "ita",
+            "mlt",
+            "nor",
+            "por",
+            "spa",
+            "swe",
+            "wel",
+            "yid",
         }
 
         # Determine which field we're checking (handle 880 linked fields)
@@ -1147,7 +1246,25 @@ class MarcLint:
 
         # Check if first word is an article (and not an exception)
         fw_lower = firstword.lower()
-        isan_article = bool(ARTICLES.get(fw_lower) and not isan_exception)
+        article_langs = ARTICLES.get(fw_lower)
+
+        # Get the record's language from 008 field (positions 35-37)
+        record_lang = self._get_record_language()
+
+        # Only consider it an article if:
+        # 1. The word is in our articles list
+        # 2. It's not an exception phrase
+        # 3. The record's language matches one where this word is an article
+        isan_article = False
+        if article_langs and not isan_exception:
+            if record_lang is None:
+                # Can't determine language - don't make assumptions about articles
+                # Just check if indicator is valid (0-9) which we did above
+                pass
+            elif record_lang in article_langs:
+                # Record's language matches one where this word is an article
+                isan_article = True
+            # else: word exists as article in other languages but not this record's language
 
         if isan_article:
             # If there's a separator and following text, count additional
@@ -1174,8 +1291,9 @@ class MarcLint:
                     position=pos,
                 )
         else:
-            # If first word is not an article, indicator should be 0
-            if ind != "0":
+            # If first word is not an article in this language, indicator should be 0
+            # But only warn if we have article data for this language
+            if ind != "0" and record_lang in SUPPORTED_ARTICLE_LANGUAGES:
                 self.warn(
                     tagno,
                     f"First word, {fw_lower}, does not appear to be an article, check {first_or_second} indicator ({ind}).",

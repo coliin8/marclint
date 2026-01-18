@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [0.0.4] - 2026-01-18
+
+- Language-aware article validation using 008 field language code (positions 35-37)
+- Expanded article dictionary with support for 20 languages: Afrikaans, Catalan, Danish, Dutch, English, Esperanto, French, German, Galician, Hungarian, Icelandic, Irish, Italian, Maltese, Norwegian, Portuguese, Spanish, Swedish, Welsh, and Yiddish
+- New articles added: Dutch (de, een, het), Afrikaans ('n), Hungarian (az, egy), Icelandic (hinn, hin, hið, etc.), Irish (na), Welsh (y, yr), Yiddish (di, dos), Esperanto (la), French (du), Italian (i), Scandinavian (det, et, ett)
+
+### Changed
+- Article validation now checks record language before flagging non-filing indicator issues
+- Articles dictionary now uses lists instead of space-delimited strings for language codes
+- Article validation skips judgment for languages not in the supported languages list
+
 ## [0.0.3] - 2026-01-18
 
 ### Added

@@ -8,6 +8,8 @@
 
 Python port of the Perl [MARC::Lint](https://metacpan.org/dist/MARC-Lint) module for validating MARC21 bibliographic records.
 
+Now added new functionality including added leader and control validation and improved article validation based on language.
+
 ## Features
 
 - ✅ Comprehensive MARC21 validation
