@@ -16,6 +16,132 @@ Python port:
     Copyright (C) 2025 Jacob Collins
 """
 
+# Required fields for minimal valid bibliographic record
+REQUIRED_FIELDS = {"001", "008", "245"}
+
+# Control fields (00X)
+CONTROL_FIELDS = {"001", "003", "005", "006", "007", "008"}
+
+# ============================================================================
+# LEADER VALIDATION CODES
+# ============================================================================
+
+# Leader/05 - Record Status
+LEADER_RECORD_STATUS: dict[str, str] = {
+    "a": "Increase in encoding level",
+    "c": "Corrected or revised",
+    "d": "Deleted",
+    "n": "New",
+    "p": "Increase in encoding level from prepublication",
+}
+"""Valid values for Leader position 05 (Record Status)."""
+
+# Leader/06 - Type of Record
+LEADER_TYPE_OF_RECORD: dict[str, str] = {
+    "a": "Language material",
+    "c": "Notated music",
+    "d": "Manuscript notated music",
+    "e": "Cartographic material",
+    "f": "Manuscript cartographic material",
+    "g": "Projected medium",
+    "i": "Nonmusical sound recording",
+    "j": "Musical sound recording",
+    "k": "Two-dimensional nonprojectable graphic",
+    "m": "Computer file",
+    "o": "Kit",
+    "p": "Mixed materials",
+    "r": "Three-dimensional artifact or naturally occurring object",
+    "t": "Manuscript language material",
+}
+"""Valid values for Leader position 06 (Type of Record)."""
+
+# Leader/07 - Bibliographic Level
+LEADER_BIBLIOGRAPHIC_LEVEL: dict[str, str] = {
+    "a": "Monographic component part",
+    "b": "Serial component part",
+    "c": "Collection",
+    "d": "Subunit",
+    "i": "Integrating resource",
+    "m": "Monograph/Item",
+    "s": "Serial",
+}
+"""Valid values for Leader position 07 (Bibliographic Level)."""
+
+# Leader/08 - Type of Control
+LEADER_TYPE_OF_CONTROL: dict[str, str] = {
+    " ": "No specified type",
+    "a": "Archival",
+}
+"""Valid values for Leader position 08 (Type of Control)."""
+
+# Leader/09 - Character Coding Scheme
+LEADER_CHARACTER_CODING_SCHEME: dict[str, str] = {
+    " ": "MARC-8",
+    "a": "UCS/Unicode",
+}
+"""Valid values for Leader position 09 (Character Coding Scheme)."""
+
+# Leader/17 - Encoding Level
+LEADER_ENCODING_LEVEL: dict[str, str] = {
+    " ": "Full level",
+    "1": "Full level, material not examined",
+    "2": "Less-than-full level, material not examined",
+    "3": "Abbreviated level",
+    "4": "Core level",
+    "5": "Partial (preliminary) level",
+    "7": "Minimal level",
+    "8": "Prepublication level",
+    "u": "Unknown",
+    "z": "Not applicable",
+}
+"""Valid values for Leader position 17 (Encoding Level)."""
+
+# Leader/18 - Descriptive Cataloging Form
+LEADER_DESCRIPTIVE_CATALOGING_FORM: dict[str, str] = {
+    " ": "Non-ISBD",
+    "a": "AACR 2",
+    "c": "ISBD punctuation omitted",
+    "i": "ISBD punctuation included",
+    "n": "Non-ISBD punctuation omitted",
+    "u": "Unknown",
+}
+"""Valid values for Leader position 18 (Descriptive Cataloging Form)."""
+
+# Leader/19 - Multipart Resource Record Level
+LEADER_MULTIPART_RESOURCE_RECORD_LEVEL: dict[str, str] = {
+    " ": "Not specified or not applicable",
+    "a": "Set",
+    "b": "Part with independent title",
+    "c": "Part with dependent title",
+}
+"""Valid values for Leader position 19 (Multipart Resource Record Level)."""
+
+# ============================================================================
+# 008 CONTROL FIELD VALIDATION
+# ============================================================================
+
+# 008/06 - Type of Date/Publication Status
+TYPE_OF_DATE: dict[str, str] = {
+    "b": "No dates given; B.C. date involved",
+    "c": "Continuing resource currently published",
+    "d": "Continuing resource ceased publication",
+    "e": "Detailed date",
+    "i": "Inclusive dates of collection",
+    "k": "Range of years of bulk of collection",
+    "m": "Multiple dates",
+    "n": "Dates unknown",
+    "p": "Date of distribution/release/issue and production/recording session when different",
+    "q": "Questionable date",
+    "r": "Reprint/reissue date and original date",
+    "s": "Single known date/probable date",
+    "t": "Publication date and copyright date",
+    "u": "Continuing resource status unknown",
+    "|": "No attempt to code",
+}
+"""Valid values for 008/06 (Type of Date/Publication Status)."""
+
+# 008/35-37 - Language (uses LANGUAGE_CODES dict)
+
 GEOG_AREA_CODES_STR: str = (
     "a------\ta-af---\ta-ai---\ta-aj---\ta-ba---\ta-bg---\ta-bn---\ta-br---\t"
     "a-bt---\ta-bx---\ta-cb---\ta-cc---\ta-cc-an\ta-cc-ch\ta-cc-cq\ta-cc-fu\t"

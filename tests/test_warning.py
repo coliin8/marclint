@@ -91,6 +91,7 @@ def test_warning_to_dict_basic():
         "message": "Must end with . (period).",
         "subfield": None,
         "position": None,
+        "record_id": None,
     }
 
 
@@ -104,6 +105,7 @@ def test_warning_to_dict_with_subfield():
         "message": "has bad checksum.",
         "subfield": "a",
         "position": None,
+        "record_id": None,
     }
 
 
@@ -117,6 +119,7 @@ def test_warning_to_dict_with_position():
         "message": "Field is not repeatable.",
         "subfield": None,
         "position": 1,
+        "record_id": None,
     }
 
 
@@ -132,6 +135,7 @@ def test_warning_to_dict_complete():
         "message": "has bad checksum, 123456789X.",
         "subfield": "a",
         "position": 2,
+        "record_id": None,
     }
 
 

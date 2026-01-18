@@ -8,6 +8,8 @@ from pytest import fixture
 
 from pymarc import Record, Field, Subfield
 
+from tests.conftest import create_minimal_record
+
 
 @fixture
 def cases():
@@ -16,10 +18,7 @@ def cases():
 
         Returns a dict of (n
         """
-        r = Record()
-        for f in fields:
-            r.add_field(f)
-        return r
+        return create_minimal_record(fields)
 
     cases = {}
 
