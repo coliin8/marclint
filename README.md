@@ -1,7 +1,7 @@
 # marc-lint
 
 [![CI](https://github.com/coliin8/marclint/actions/workflows/ci.yml/badge.svg)](https://github.com/coliin8/marclint/actions/workflows/ci.yml)
-[![PyPI version](https://badge.fury.io/py/marc-lint.svg)](https://badge.fury.io/py/marc-lint)
+[![PyPI version](https://badge.fury.io/py/marc-lint)](https://badge.fury.io/py/marc-lint)
 [![Python versions](https://img.shields.io/pypi/pyversions/marc-lint.svg)](https://pypi.org/project/marc-lint/)
 [![codecov](https://codecov.io/gh/coliin8/marclint/branch/main/graph/badge.svg)](https://codecov.io/gh/coliin8/marclint)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -11,10 +11,12 @@ Python port of the Perl [MARC::Lint](https://metacpan.org/dist/MARC-Lint) module
 ## Features
 
 - ✅ Comprehensive MARC21 validation
+- ✅ Leader and control field (008) validation
 - ✅ ISBN/ISSN validation using industry-standard algorithms
 - ✅ Language and geographic code validation
 - ✅ Article/non-filing indicator validation
-- ✅ Command-line tool for batch processing
+- ✅ Batch processing with per-record identification
+- ✅ Command-line tool with JSON output support
 - ✅ Python 3.10+ support
 - ✅ Type hints and comprehensive test coverage
 
@@ -41,26 +43,77 @@ marc-lint records.mrc
 
 Example output:
 ```
---- Record 1 ---
+--- Record ocm12345678 ---
   020: Subfield a has bad checksum, 123456789X.
   245: Must end with . (period).
 
---- Record 2 ---
+--- Record ocm87654321 ---
   022: Subfield a has bad checksum, 1234-5678.
 
 ============================================================
 Processed 2 record(s)
-Found 3 warning(s)
+Found 3 warning(s) in 2 record(s)
 ```
 
-The CLI exits with status code 0 if no warnings are found, or 1 if warnings are present (useful for CI/CD).
+#### CLI Options
 
 ```bash
-# Use in CI/CD pipelines
+# Output as JSON (useful for automation)
+marc-lint records.mrc --format json
+
+# Quiet mode (warnings only, no summary)
+marc-lint records.mrc --quiet
+
+# Use record index as ID when 001 field is missing
+marc-lint records.mrc --use-index
+
+# Combine options
+marc-lint records.mrc -f json -q
+```
+
+#### JSON Output Format
+
+```bash
+marc-lint records.mrc --format json
+```
+
+```json
+[
+  {
+    "record_id": "ocm12345678",
+    "is_valid": false,
+    "warnings": [
+      {
+        "field": "020",
+        "message": "has bad checksum, 123456789X.",
+        "subfield": "a",
+        "position": null,
+        "record_id": "ocm12345678"
+      }
+    ]
+  },
+  {
+    "record_id": "ocm87654321",
+    "is_valid": true,
+    "warnings": []
+  }
+]
+```
+
+#### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | No warnings found |
+| 1 | Warnings found |
+| 2 | Error reading file |
+
+Use in CI/CD pipelines:
+```bash
 marc-lint catalog.mrc && echo "All records valid!"
 ```
 
-### Python Library - Basic Usage
+### Python Library - Single Record
 
 ```python
 from marc_lint import MarcLint
@@ -69,17 +122,45 @@ from pymarc import MARCReader
 # Create a linter instance
 linter = MarcLint()
 
-# Process MARC records
+# Process MARC records one at a time
 with open('records.mrc', 'rb') as fh:
     reader = MARCReader(fh)
     for record in reader:
-        linter.check_record(record)
+        warnings = linter.check_record(record)
         
-        # Get warnings as strings (backward compatible)
-        if linter.warnings():
-            print(f"Record has {len(linter.warnings())} warnings:")
-            for warning in linter.warnings():
+        if warnings:
+            print(f"Record has {len(warnings)} warnings:")
+            for warning in warnings:
                 print(f"  - {warning}")
+```
+
+### Python Library - Batch Processing
+
+For processing multiple records with per-record identification:
+
+```python
+from marc_lint import MarcLint
+from pymarc import MARCReader
+
+linter = MarcLint()
+
+with open('records.mrc', 'rb') as fh:
+    reader = MARCReader(fh)
+    records = list(reader)
+
+# Process all records at once
+results = linter.check_records(records, use_index_as_id=True)
+
+for result in results:
+    if not result.is_valid:
+        print(f"Record {result.record_id}:")
+        for warning in result.warnings:
+            print(f"  - {warning}")
+
+# Summary statistics
+total_warnings = sum(len(r.warnings) for r in results)
+invalid_records = sum(1 for r in results if not r.is_valid)
+print(f"Found {total_warnings} warnings in {invalid_records} of {len(results)} records")
 ```
 
 ### Python Library - Structured Warnings
@@ -99,6 +180,7 @@ with open('records.mrc', 'rb') as fh:
         
         # Get structured warning objects
         for warning in linter.warnings_structured():
+            print(f"Record: {warning.record_id}")
             print(f"Field: {warning.field}")
             print(f"Message: {warning.message}")
             if warning.subfield:
@@ -120,12 +202,20 @@ linter = MarcLint()
 
 with open('records.mrc', 'rb') as fh:
     reader = MARCReader(fh)
-    for record in reader:
-        linter.check_record(record)
-        
-        # Convert to JSON
-        warnings_data = [w.to_dict() for w in linter.warnings_structured()]
-        print(json.dumps(warnings_data, indent=2))
+    records = list(reader)
+
+results = linter.check_records(records)
+
+# Convert to JSON
+output = [
+    {
+        "record_id": r.record_id,
+        "is_valid": r.is_valid,
+        "warnings": [w.to_dict() for w in r.warnings]
+    }
+    for r in results
+]
+print(json.dumps(output, indent=2))
 ```
 
 Example JSON output:
@@ -135,13 +225,8 @@ Example JSON output:
     "field": "020",
     "message": "has bad checksum, 123456789X.",
     "subfield": "a",
-    "position": null
-  },
-  {
-    "field": "245",
-    "message": "Must end with . (period).",
-    "subfield": null,
-    "position": null
+    "position": null,
+    "record_id": "ocm12345678"
   }
 ]
 ```
@@ -161,16 +246,38 @@ subfield_a_warnings = [
     if w.subfield == "a"
 ]
 
-# Group by field
-from collections import defaultdict
-warnings_by_field = defaultdict(list)
-for warning in linter.warnings_structured():
-    warnings_by_field[warning.field].append(warning)
+# Filter by record
+results = linter.check_records(records)
+for result in results:
+    leader_warnings = [w for w in result.warnings if w.field == "LDR"]
 ```
 
 See [STRUCTURED_WARNINGS.md](STRUCTURED_WARNINGS.md) for detailed documentation on structured warnings.
 
 ## Validation Rules
+
+### Leader Validation
+
+Validates leader positions:
+- Position 05: Record status
+- Position 06: Type of record
+- Position 07: Bibliographic level
+- Position 08: Type of control
+- Position 09: Character coding scheme
+- Position 17: Encoding level
+- Position 18: Descriptive cataloging form
+- Position 19: Multipart resource record level
+
+### Control Field 008 Validation
+
+Validates:
+- Field length (40 characters)
+- Type of date (position 06)
+- Date 1 and Date 2 (positions 07-14)
+- Country code (positions 15-17)
+- Language code (positions 35-37)
+- Modified record indicator (position 38)
+- Cataloging source (position 39)
 
 ### Supported Fields
 
@@ -191,15 +298,16 @@ See [STRUCTURED_WARNINGS.md](STRUCTURED_WARNINGS.md) for detailed documentation 
 - `marc_lint.code_data.py` – translation of the code tables from
   `MARC::Lint::CodeData` (language, geographic area, country codes).
 - `marc_lint.field_rules.py` – equivalent to `__DATA__` and `_read_rules` in `MARC::Lint`.
+- `marc_lint.warning.py` – `MarcWarning` class for structured warnings.
+- `marc_lint.cli.py` – command-line interface.
 
 Key behavior mirrored from the Perl module:
 
-- Per-record checks in `MarcLint.check_record`: 1XX-count, required 245,
+- Per-record checks in `MarcLint.check_record`: leader validation, 1XX-count, required 245,
   field repeatability, indicator validity, subfield legality and
   repeatability, and control-field rules.
-- Tag-specific methods `check_020`, `check_041`, `check_043`, `check_245`,
+- Tag-specific methods `check_020`, `check_022`, `check_041`, `check_043`, `check_245`,
   plus `_check_article` for handling non-filing indicators.
-- Add Tag-specific methods `check_022` and will add others in the future.
 - Rules for tags are built in `_read_rules` from `RULES_DATA`, which is a
   equivalent to `__DATA__` table in `Lint.pm`.
 

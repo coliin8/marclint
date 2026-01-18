@@ -11,6 +11,8 @@ the current implementation in linter.py, which:
 from pytest import fixture
 from pymarc import Record, Field, Subfield
 
+from tests.conftest import create_minimal_record
+
 
 @fixture
 def cases():
@@ -18,10 +20,7 @@ def cases():
 
     def create_record(fields: list[Field]) -> Record:
         """Helper to build a Record from a list of fields."""
-        r = Record()
-        for f in fields:
-            r.add_field(f)
-        return r
+        return create_minimal_record(fields)
 
     cases = {}
 

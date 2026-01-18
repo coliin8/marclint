@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3] - 2026-01-18
+
+### Added
+- Leader validation (`check_leader()`) for positions 05, 06, 07, 08, 09, 17, 18, 19
+- Control field 008 validation (`check_008()`) for length, dates, country codes, language codes, and cataloging source
+- Multi-record batch processing with `check_records()` method
+- `RecordResult` class for structured batch processing results
+- Record identification in warnings via `record_id` field in `MarcWarning`
+- Automatic record ID extraction from 001 field
+- Leader validation code tables in `code_data.py`
+- CLI `--format json` option for JSON output
+- CLI `--quiet` option to suppress summary output
+- CLI `--use-index` option for records without 001 field
+- CLI now shows record IDs from 001 field instead of sequential numbers
+
 ## [0.0.2] - 2025-12-25
 
 ### Added

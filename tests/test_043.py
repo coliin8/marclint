@@ -1,7 +1,16 @@
 """Unit tests for check_043 (Geographic Area Code validation)."""
 
 import pytest
-from pymarc import Record, Field, Subfield
+from pymarc import Field, Subfield
+
+from tests.conftest import create_minimal_record
+
+
+def make_043_record(subfields_data):
+    """Create a minimal record with a 043 field."""
+    subfields = [Subfield(code=sf[0], value=sf[1]) for sf in subfields_data]
+    field_043 = Field(tag="043", indicators=[" ", " "], subfields=subfields)
+    return create_minimal_record([field_043])
 
 
 @pytest.fixture
@@ -9,202 +18,34 @@ def cases():
     """Test cases for 043 field validation."""
     return {
         # Valid cases
-        "valid_single_code": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[Subfield(code="a", value="n-us---")],
-                )
-            ],
-        ),
-        "valid_multiple_codes": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[
-                        Subfield(code="a", value="n-us---"),
-                        Subfield(code="a", value="e-uk---"),
-                    ],
-                )
-            ],
-        ),
-        "valid_us_state": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[Subfield(code="a", value="n-us-ca")],
-                )
-            ],
-        ),
-        "valid_asia": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[Subfield(code="a", value="a-ja---")],
-                )
-            ],
-        ),
-        "valid_europe": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[Subfield(code="a", value="e-fr---")],
-                )
-            ],
-        ),
+        "valid_single_code": make_043_record([("a", "n-us---")]),
+        "valid_multiple_codes": make_043_record([("a", "n-us---"), ("a", "e-uk---")]),
+        "valid_us_state": make_043_record([("a", "n-us-ca")]),
+        "valid_asia": make_043_record([("a", "a-ja---")]),
+        "valid_europe": make_043_record([("a", "e-fr---")]),
         # Invalid length cases
-        "invalid_length_short": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[Subfield(code="a", value="n-us")],
-                )
-            ],
-        ),
-        "invalid_length_long": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[Subfield(code="a", value="n-us----")],
-                )
-            ],
-        ),
-        "invalid_length_empty": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[Subfield(code="a", value="")],
-                )
-            ],
-        ),
+        "invalid_length_short": make_043_record([("a", "n-us")]),
+        "invalid_length_long": make_043_record([("a", "n-us----")]),
+        "invalid_length_empty": make_043_record([("a", "")]),
         # Invalid code cases
-        "invalid_code": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[Subfield(code="a", value="x-xx---")],
-                )
-            ],
+        "invalid_code": make_043_record([("a", "x-xx---")]),
+        "invalid_code_wrong_pattern": make_043_record([("a", "nope123")]),
+        # Obsolete geographic area codes
+        "obsolete_code": make_043_record([("a", "e-ur-ai")]),  # Armenia (USSR)
+        "multiple_obsolete": make_043_record(
+            [("a", "e-ur-kz"), ("a", "e-ur-uz")]
+        ),  # Kazakhstan, Uzbekistan (USSR)
+        # Mixed validity
+        "multiple_mixed_validity": make_043_record(
+            [("a", "n-us---"), ("a", "x-xx---"), ("a", "e-fr---")]
         ),
-        "invalid_code_wrong_pattern": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[Subfield(code="a", value="nope123")],
-                )
-            ],
-        ),
-        # Obsolete geographic area code (e.g., Soviet republics)
-        "obsolete_code": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[
-                        Subfield(code="a", value="e-ur-ai")
-                    ],  # Armenia (USSR), obsolete
-                )
-            ],
-        ),
-        # Multiple obsolete codes
-        "multiple_obsolete": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[
-                        Subfield(
-                            code="a", value="e-ur-kz"
-                        ),  # Kazakhstan (USSR), obsolete
-                        Subfield(
-                            code="a", value="e-ur-uz"
-                        ),  # Uzbekistan (USSR), obsolete
-                    ],
-                )
-            ],
-        ),
-        # Multiple subfields mixed validity
-        "multiple_mixed_validity": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[
-                        Subfield(code="a", value="n-us---"),  # Valid
-                        Subfield(code="a", value="x-xx---"),  # Invalid
-                        Subfield(code="a", value="e-fr---"),  # Valid
-                    ],
-                )
-            ],
-        ),
-        # Other subfields (should be ignored by check_043)
-        "with_other_subfields": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[
-                        Subfield(code="a", value="n-us---"),
-                        Subfield(code="b", value="Some other data"),  # Ignored
-                        Subfield(code="c", value="More data"),  # Ignored
-                    ],
-                )
-            ],
+        # Other subfields (should be ignored)
+        "with_other_subfields": make_043_record(
+            [("a", "n-us---"), ("b", "Some other data"), ("c", "More data")]
         ),
         # Comprehensive smoke test
-        "comprehensive_smoke": Record(
-            force_utf8=True,
-            leader="00000nam  2200000   4500",
-            fields=[
-                Field(
-                    tag="043",
-                    indicators=[" ", " "],
-                    subfields=[
-                        Subfield(code="a", value="n-us---"),
-                        Subfield(code="a", value="n-us-ny"),
-                        Subfield(code="a", value="e-uk---"),
-                        Subfield(code="a", value="a-ja---"),
-                    ],
-                )
-            ],
+        "comprehensive_smoke": make_043_record(
+            [("a", "n-us---"), ("a", "n-us-ny"), ("a", "e-uk---"), ("a", "a-ja---")]
         ),
     }
 
@@ -335,6 +176,5 @@ def test_043_comprehensive_smoke(linter, cases):
     record = cases["comprehensive_smoke"]
     linter.check_record(record)
     warnings = "\n".join(linter.warnings())
-    # All codes are valid, should only see the 245 warning
+    # All codes are valid, should have no 043 warnings
     assert "043: Subfield a" not in warnings
-    assert "245: No 245 tag" in warnings

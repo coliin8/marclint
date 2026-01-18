@@ -29,20 +29,64 @@ from .code_data import (
     OBSOLETE_GEOG_AREA_CODES,
     LANGUAGE_CODES,
     OBSOLETE_LANGUAGE_CODES,
+    COUNTRY_CODES,
+    OBSOLETE_COUNTRY_CODES,
+    LEADER_RECORD_STATUS,
+    LEADER_TYPE_OF_RECORD,
+    LEADER_BIBLIOGRAPHIC_LEVEL,
+    LEADER_ENCODING_LEVEL,
+    LEADER_TYPE_OF_CONTROL,
+    LEADER_CHARACTER_CODING_SCHEME,
+    LEADER_DESCRIPTIVE_CATALOGING_FORM,
+    LEADER_MULTIPART_RESOURCE_RECORD_LEVEL,
+    TYPE_OF_DATE,
+    REQUIRED_FIELDS,
 )
 from .warning import MarcWarning
+
+
+class RecordResult:
+    """Result of linting a single MARC record.
+
+    Attributes:
+        record_id: Identifier for the record (from 001 field or index)
+        warnings: List of MarcWarning objects for this record
+        record: Reference to the original Record object
+    """
+
+    def __init__(
+        self,
+        record_id: str,
+        warnings: List[MarcWarning],
+        record: Optional[Record] = None,
+    ) -> None:
+        self.record_id = record_id
+        self.warnings = warnings
+        self.record = record
+
+    @property
+    def is_valid(self) -> bool:
+        """Return True if no warnings were generated."""
+        return len(self.warnings) == 0
+
+    def __repr__(self) -> str:
+        return (
+            f"RecordResult(record_id={self.record_id!r}, warnings={len(self.warnings)})"
+        )
 
 
 class MarcLint:
     """Rough Python equivalent of `MARC::Lint`.
 
     Main entrypoint is `check_record(record)`, after which you can
-    inspect `warnings()` for any messages.
+    inspect `warnings()` for any messages. For batch processing,
+    use `check_records(records)` to validate multiple records at once.
     """
 
     def __init__(self) -> None:
         self._warnings: list[MarcWarning] = []
         self._rules = RuleGenerator().rules
+        self._current_record_id: Optional[str] = None
         self._field_positions: Dict[
             str, int
         ] = {}  # Track positions of repeating fields
@@ -71,37 +115,69 @@ class MarcLint:
         message: str,
         subfield: Optional[str] = None,
         position: Optional[int] = None,
+        record_id: Optional[str] = None,
     ) -> None:
         """Add a structured warning.
 
         Args:
-            field: The MARC field tag (e.g., "020", "245")
+            field: The MARC field tag (e.g., "020", "245", "LDR" for leader)
             message: The error message
             subfield: Optional subfield code (e.g., "a", "z")
             position: Optional position for repeating fields (0-based index)
+            record_id: Optional record identifier (defaults to current record if set)
         """
+        # Use provided record_id or fall back to current record context
+        rid = record_id if record_id is not None else self._current_record_id
         self._warnings.append(
             MarcWarning(
-                field=field, message=message, subfield=subfield, position=position
+                field=field,
+                message=message,
+                subfield=subfield,
+                position=position,
+                record_id=rid,
             )
         )
 
     # -------- main record check --------
 
-    def check_record(self, marc: Record) -> None:
+    def check_record(
+        self, marc: Record, record_id: Optional[str] = None
+    ) -> List[MarcWarning]:
         """Run lint checks on a `pymarc.Record`.
 
-        Mirrors the Perl `check_record` method: validates 1XX count,
+        Mirrors the Perl `check_record` method: validates leader, 1XX count,
         presence of 245, field repeatability, indicators, subfields,
         control-field rules, and then any tag-specific `check_xxx`
         method that exists on this class.
+
+        Args:
+            marc: A pymarc.Record object to validate
+            record_id: Optional identifier for the record. If not provided,
+                       will attempt to use the 001 field value.
+
+        Returns:
+            List of MarcWarning objects for this record.
         """
 
         self.clear_warnings()
 
         if not isinstance(marc, Record):
             self.warn("", "Must pass a MARC::Record-like object to check_record")
-            return
+            return self._warnings
+
+        # Set current record ID for context
+        if record_id:
+            self._current_record_id = record_id
+        else:
+            # Try to get record ID from 001 field
+            field_001 = marc.get_fields("001")
+            if field_001 and hasattr(field_001[0], "data"):
+                self._current_record_id = field_001[0].data
+            else:
+                self._current_record_id = None
+
+        # Check leader first
+        self.check_leader(marc)
 
         one_xx = [f for f in marc.get_fields() if f.tag.startswith("1")]
         if len(one_xx) > 1:
@@ -109,9 +185,12 @@ class MarcLint:
                 "1XX",
                 f"Only one 1XX tag is allowed, but I found {len(one_xx)} of them.",
             )
-
-        if not marc.get_fields("245"):
-            self.warn("245", "No 245 tag.")
+        # Check for presence of 245
+        field_tags = {f.tag for f in marc.fields}
+        missing = REQUIRED_FIELDS - field_tags
+        if missing:
+            for tag in sorted(missing):
+                self.warn(tag, f"No {tag} tag.")
 
         field_seen: Dict[str, int] = {}
         rules = self._rules
@@ -174,7 +253,130 @@ class MarcLint:
 
             field_seen[key] = position + 1
 
+        # Reset current record ID
+        self._current_record_id = None
+
+        return self._warnings
+
+    def check_records(
+        self, records: List[Record], use_index_as_id: bool = False
+    ) -> List[RecordResult]:
+        """Run lint checks on multiple MARC records.
+
+        Args:
+            records: List of pymarc.Record objects to validate
+            use_index_as_id: If True, use the 0-based index as record_id when
+                            001 field is not available. If False, record_id
+                            may be None for records without 001.
+
+        Returns:
+            List of RecordResult objects, one for each input record.
+        """
+        results: List[RecordResult] = []
+
+        for idx, record in enumerate(records):
+            # Determine record ID
+            record_id: Optional[str] = None
+            field_001 = record.get_fields("001") if isinstance(record, Record) else []
+            if field_001 and hasattr(field_001[0], "data"):
+                record_id = field_001[0].data
+            elif use_index_as_id:
+                record_id = str(idx)
+
+            # Check the record
+            warnings = self.check_record(record, record_id=record_id)
+
+            # Create result object
+            result = RecordResult(
+                record_id=record_id or str(idx),
+                warnings=list(warnings),  # Copy the list
+                record=record,
+            )
+            results.append(result)
+
+        return results
+
     # # -------- General checks --------
+
+    def check_leader(self, marc: Record) -> None:
+        """Validate the MARC record leader.
+
+        Checks positions:
+        - 05: Record status
+        - 06: Type of record
+        - 07: Bibliographic level
+        - 08: Type of control
+        - 09: Character coding scheme
+        - 17: Encoding level
+        - 18: Descriptive cataloging form
+        - 19: Multipart resource record level
+        """
+        # Handle both string and Leader object (pymarc 4.x vs 5.x)
+        raw_leader = marc.leader if marc.leader else ""
+        leader = str(raw_leader) if raw_leader else ""
+
+        if len(leader) < 24:
+            self.warn(
+                "LDR",
+                f"Leader must be 24 characters, found {len(leader)}.",
+            )
+            return
+
+        # Position 05: Record status
+        if leader[5] not in LEADER_RECORD_STATUS:
+            self.warn(
+                "LDR",
+                f"Invalid record status '{leader[5]}' at position 05.",
+            )
+
+        # Position 06: Type of record
+        if leader[6] not in LEADER_TYPE_OF_RECORD:
+            self.warn(
+                "LDR",
+                f"Invalid type of record '{leader[6]}' at position 06.",
+            )
+
+        # Position 07: Bibliographic level
+        if leader[7] not in LEADER_BIBLIOGRAPHIC_LEVEL:
+            self.warn(
+                "LDR",
+                f"Invalid bibliographic level '{leader[7]}' at position 07.",
+            )
+
+        # Position 08: Type of control
+        if leader[8] not in LEADER_TYPE_OF_CONTROL:
+            self.warn(
+                "LDR",
+                f"Invalid type of control '{leader[8]}' at position 08.",
+            )
+
+        # Position 09: Character coding scheme
+        if leader[9] not in LEADER_CHARACTER_CODING_SCHEME:
+            self.warn(
+                "LDR",
+                f"Invalid character coding scheme '{leader[9]}' at position 09.",
+            )
+
+        # Position 17: Encoding level
+        if leader[17] not in LEADER_ENCODING_LEVEL:
+            self.warn(
+                "LDR",
+                f"Invalid encoding level '{leader[17]}' at position 17.",
+            )
+
+        # Position 18: Descriptive cataloging form
+        if leader[18] not in LEADER_DESCRIPTIVE_CATALOGING_FORM:
+            self.warn(
+                "LDR",
+                f"Invalid descriptive cataloging form '{leader[18]}' at position 18.",
+            )
+
+        # Position 19: Multipart resource record level
+        if leader[19] not in LEADER_MULTIPART_RESOURCE_RECORD_LEVEL:
+            self.warn(
+                "LDR",
+                f"Invalid multipart resource record level '{leader[19]}' at position 19.",
+            )
 
     def check_indicators(
         self, tagno: str, field: Field, tagrules: dict[str, Any], position: int = 0
@@ -465,6 +667,154 @@ class MarcLint:
                         self.warn(
                             "043", f"{value}, is not valid.", subfield="a", position=pos
                         )
+
+    def check_008(self, field: Field, position: int = 0) -> None:
+        """Control field 008 validation.
+
+        Validates:
+        - Field length (must be 40 characters)
+        - Position 06: Type of date/publication status
+        - Positions 07-10: Date 1 (YYYY format)
+        - Positions 11-14: Date 2 (YYYY format or blanks/special values)
+        - Positions 15-17: Place of publication/production (country code)
+        - Positions 35-37: Language code
+        - Position 38: Modified record indicator
+        - Position 39: Cataloging source
+        """
+        pos = position if position > 0 else None
+
+        # Get field data (control fields store data directly, not in subfields)
+        data = getattr(field, "data", "") or ""
+
+        # Check length
+        if len(data) != 40:
+            self.warn(
+                "008",
+                f"Field must be 40 characters, found {len(data)}.",
+                position=pos,
+            )
+            # Can't validate positions if length is wrong
+            if len(data) < 40:
+                return
+
+        # Position 06: Type of date/publication status
+        type_of_date = data[6]
+        if type_of_date not in TYPE_OF_DATE:
+            self.warn(
+                "008",
+                f"Invalid type of date/publication status '{type_of_date}' at position 06.",
+                position=pos,
+            )
+
+        # Positions 07-10: Date 1 (should be YYYY, blanks, or special)
+        date1 = data[7:11]
+        if not self._is_valid_008_date(date1):
+            self.warn(
+                "008",
+                f"Invalid Date 1 '{date1}' at positions 07-10.",
+                position=pos,
+            )
+
+        # Positions 11-14: Date 2
+        date2 = data[11:15]
+        if not self._is_valid_008_date(date2):
+            self.warn(
+                "008",
+                f"Invalid Date 2 '{date2}' at positions 11-14.",
+                position=pos,
+            )
+
+        # Positions 15-17: Place of publication (country code)
+        # Country codes can be 2 or 3 characters, right-padded with space
+        country = data[15:18]
+        country_stripped = country.strip()
+        valid_country = COUNTRY_CODES.get(country) or COUNTRY_CODES.get(
+            country_stripped
+        )
+        obsolete_country = OBSOLETE_COUNTRY_CODES.get(
+            country
+        ) or OBSOLETE_COUNTRY_CODES.get(country_stripped)
+        if not valid_country and country_stripped != "":
+            if obsolete_country:
+                self.warn(
+                    "008",
+                    f"Country code '{country}' at positions 15-17 may be obsolete.",
+                    position=pos,
+                )
+            elif country != "   " and country != "|||":  # blanks or no attempt to code
+                self.warn(
+                    "008",
+                    f"Invalid country code '{country}' at positions 15-17.",
+                    position=pos,
+                )
+
+        # Positions 35-37: Language code
+        language = data[35:38]
+        valid_lang = LANGUAGE_CODES.get(language)
+        obsolete_lang = OBSOLETE_LANGUAGE_CODES.get(language)
+        if not valid_lang:
+            if obsolete_lang:
+                self.warn(
+                    "008",
+                    f"Language code '{language}' at positions 35-37 may be obsolete.",
+                    position=pos,
+                )
+            elif (
+                language != "   " and language != "|||"
+            ):  # blanks or no attempt to code
+                self.warn(
+                    "008",
+                    f"Invalid language code '{language}' at positions 35-37.",
+                    position=pos,
+                )
+
+        # Position 38: Modified record
+        modified_record = data[38]
+        valid_modified = {" ", "d", "o", "r", "s", "x", "|"}
+        if modified_record not in valid_modified:
+            self.warn(
+                "008",
+                f"Invalid modified record indicator '{modified_record}' at position 38.",
+                position=pos,
+            )
+
+        # Position 39: Cataloging source
+        cataloging_source = data[39]
+        valid_cataloging = {" ", "c", "d", "u", "|"}
+        if cataloging_source not in valid_cataloging:
+            self.warn(
+                "008",
+                f"Invalid cataloging source '{cataloging_source}' at position 39.",
+                position=pos,
+            )
+
+    def _is_valid_008_date(self, date_str: str) -> bool:
+        """Check if an 008 date string is valid.
+
+        Valid formats:
+        - YYYY (4 digits, 0000-9999)
+        - '    ' (4 blanks)
+        - '||||' (no attempt to code)
+        - 'uuuu' (unknown)
+        - Partial unknowns like '19uu' or '199u'
+        """
+        if len(date_str) != 4:
+            return False
+
+        # All blanks is valid
+        if date_str == "    ":
+            return True
+
+        # No attempt to code
+        if date_str == "||||":
+            return True
+
+        # Check for valid year pattern (digits and 'u' for unknown)
+        for char in date_str:
+            if char not in "0123456789u":
+                return False
+
+        return True
 
     def check_130(self, field: Field, position: int = 0) -> None:
         """Uniform title heading - validate non-filing indicator."""

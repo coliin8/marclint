@@ -3,18 +3,34 @@
 import pytest
 from pymarc import Record, Field, Subfield
 
+from tests.conftest import create_minimal_record
+
 
 def _create_record_with_022(field_022: Field) -> Record:
     """Helper to create a minimal MARC record with 245 and 022 fields."""
-    rec = Record()
-    # Add required 245 field with proper punctuation to avoid warnings
-    rec.add_field(
-        Field(
-            tag="245", indicators=["0", "0"], subfields=[Subfield("a", "Test title.")]
-        )
-    )
-    rec.add_field(field_022)
-    return rec
+    return create_minimal_record([field_022])
+
+
+def _warnings_match(actual: list[str], expected: list[str]) -> bool:
+    """Check that actual warnings contain the expected warning messages.
+
+    Handles the record_id prefix in actual warnings by checking if
+    each expected message is contained within an actual warning.
+    """
+    if len(actual) != len(expected):
+        return False
+    if not expected:
+        return True
+    # Each expected warning should appear in exactly one actual warning
+    matched = set()
+    for exp in expected:
+        for i, act in enumerate(actual):
+            if i not in matched and exp in act:
+                matched.add(i)
+                break
+        else:
+            return False
+    return True
 
 
 @pytest.fixture
@@ -189,7 +205,7 @@ def test_022_valid_issn_with_hyphen(linter, cases):
     case = cases[0]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_valid_issn_no_hyphen(linter, cases):
@@ -197,7 +213,7 @@ def test_022_valid_issn_no_hyphen(linter, cases):
     case = cases[1]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_valid_issn_nature(linter, cases):
@@ -205,7 +221,7 @@ def test_022_valid_issn_nature(linter, cases):
     case = cases[2]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_invalid_checksum(linter, cases):
@@ -213,7 +229,7 @@ def test_022_invalid_checksum(linter, cases):
     case = cases[3]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_wrong_length(linter, cases):
@@ -221,7 +237,7 @@ def test_022_wrong_length(linter, cases):
     case = cases[4]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_improper_hyphen(linter, cases):
@@ -229,7 +245,7 @@ def test_022_improper_hyphen(linter, cases):
     case = cases[5]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_subfield_y_valid(linter, cases):
@@ -237,7 +253,7 @@ def test_022_subfield_y_valid(linter, cases):
     case = cases[6]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_subfield_y_invalid(linter, cases):
@@ -245,7 +261,7 @@ def test_022_subfield_y_invalid(linter, cases):
     case = cases[7]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_subfield_z_canceled(linter, cases):
@@ -253,7 +269,7 @@ def test_022_subfield_z_canceled(linter, cases):
     case = cases[8]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_multiple_issns(linter, cases):
@@ -261,7 +277,7 @@ def test_022_multiple_issns(linter, cases):
     case = cases[9]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_lowercase_x(linter, cases):
@@ -269,7 +285,7 @@ def test_022_lowercase_x(linter, cases):
     case = cases[10]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_invalid_characters(linter, cases):
@@ -277,7 +293,7 @@ def test_022_invalid_characters(linter, cases):
     case = cases[11]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_empty_subfield(linter, cases):
@@ -285,7 +301,7 @@ def test_022_empty_subfield(linter, cases):
     case = cases[12]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_with_qualifier(linter, cases):
@@ -293,7 +309,7 @@ def test_022_with_qualifier(linter, cases):
     case = cases[13]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_subfield_z_invalid_format(linter, cases):
@@ -301,15 +317,13 @@ def test_022_subfield_z_invalid_format(linter, cases):
     case = cases[14]
     rec = _create_record_with_022(case["field"])
     linter.check_record(rec)
-    assert linter.warnings() == case["expected_warnings"]
+    assert _warnings_match(linter.warnings(), case["expected_warnings"])
 
 
 def test_022_comprehensive_smoke(linter):
     """Comprehensive smoke test with multiple 022 scenarios."""
-    rec = Record()
-    rec.add_field(
-        Field(tag="245", indicators=["0", "0"], subfields=[Subfield("a", "Test.")])
-    )
+    # Create record with proper leader/008 to avoid leader/control field warnings
+    rec = create_minimal_record()
 
     # Valid ISSN
     rec.add_field(

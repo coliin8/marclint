@@ -2,7 +2,7 @@
 
 __version__ = "0.0.2"
 
-from .linter import MarcLint
+from .linter import MarcLint, RecordResult
 from .warning import MarcWarning
 
-__all__ = ["MarcLint", "MarcWarning"]
+__all__ = ["MarcLint", "MarcWarning", "RecordResult"]
