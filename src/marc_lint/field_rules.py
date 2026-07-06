@@ -1158,15 +1158,19 @@ o       R       Polarity
 
 341     R       ACCESSIBILITY CONTENT
 ind1    b01     Application
-ind2    blank   Undefined
+ind2    b123    Presence of accessibility features/hazards
 a       NR      Content access mode
 b       R       Textual assistive features
 c       R       Visual assistive features
 d       R       Auditory assistive features
 e       R       Tactile assistive features
+h       R       Sensory hazards
+0       R       Authority record control number or standard number
+1       R       Real World Object URI
 2       NR      Source
 3       NR      Materials specified
 6       NR      Linkage
+7       R       Data provenance
 8       R       Field link and sequence number
 
 342     R       GEOSPATIAL REFERENCE DATA
